@@ -1,0 +1,6 @@
+CaseStudy.py
+*.pdf
+*.pyc
+*.qbin
+*.qisa
+temp*
