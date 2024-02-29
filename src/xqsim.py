@@ -1,4 +1,4 @@
-import os, sys 
+import os, sys
 
 curr_path = os.path.abspath(__file__)
 curr_dir = os.path.dirname(curr_path)
@@ -12,7 +12,7 @@ from absl import flags
 from absl import app
 #
 from parse import compile
-# 
+#
 from xq_simulator import xq_simulator
 from xq_estimator import xq_estimator
 from sim_param import sim_param
@@ -46,9 +46,9 @@ class xqsim:
         self.debug = None
         return
 
-    def setup(self, 
-              config=None, 
-              qbin=None, 
+    def setup(self,
+              config=None,
+              qbin=None,
               num_shots=None,
               dump_synth=None,
               regen_synth=None,
@@ -71,7 +71,7 @@ class xqsim:
         self.skip_pqsim = skip_pqsim
         self.debug = debug
         #
-        b_format = compile("{}_n{}") 
+        b_format = compile("{}_n{}")
         _, str_lq = b_format.parse(self.qbin)
         self.num_lq = int(str_lq)+2 # total number of lq
 
@@ -81,7 +81,7 @@ class xqsim:
         # estimator
         self.estimator = xq_estimator()
         self.estimator.setup(
-                config = self.config, 
+                config = self.config,
                 num_lq = self.num_lq,
                 dump_synth = self.dump_synth,
                 regen_synth = self.regen_synth,
@@ -92,13 +92,14 @@ class xqsim:
 
         # simulator
         self.simulator = xq_simulator()
+        self.simulator.emulate = True
         self.simulator.setup(
                 config = self.config,
                 qbin = self.qbin,
                 num_lq = self.num_lq,
                 skip_pqsim = self.skip_pqsim,
                 num_shots = self.num_shots,
-                dump = self.dump_sim, 
+                dump = self.dump_sim,
                 regen = self.regen_sim,
                 debug = self.debug
                )
@@ -119,7 +120,7 @@ class xqsim:
         #
         for est_stat, sim_stat in zip(estimator_stat, simulator_stat):
             assert est_stat.name == sim_stat.name
-            name = est_stat.name 
+            name = est_stat.name
 
             # inst_bwreq
             if name == "TCU":
@@ -142,7 +143,7 @@ class xqsim:
             # data transfer
             if sim_stat.data_transfer:
                 transfer_unit_df = get_transfer_unit(est_stat, sim_stat)
-                try: 
+                try:
                     transfer_df = pd.concat([transfer_df, transfer_unit_df], ignore_index=True)
                 except:
                     transfer_df = transfer_unit_df
@@ -153,7 +154,7 @@ class xqsim:
         pwire_4K_avg = round(param.cable_heat_300kto4k * gbps_300K_4K_avg, 2) # mW
 
         # others
-        ## esm_latency 
+        ## esm_latency
         esm_latency = 0
         esm_seq = self.simulator.psu.cwdNtime_srmem["RESM"]
         for entry in esm_seq:
@@ -181,7 +182,7 @@ class xqsim:
         xqsim_res["gbps_300K_4K_avg"] = gbps_300K_4K_avg
         xqsim_res["pwire_4K_max"] = pwire_4K_max
         xqsim_res["pwire_4K_avg"] = pwire_4K_avg
-        ## 
+        ##
         xqsim_res["edu_latency_const"] = esm_latency
         xqsim_res["power_4K_const"] = param.power_budget_4k
         ##
@@ -197,7 +198,7 @@ def get_inst_bw_res(tcu_est_stat, tcu_sim_stat):
     #
     inst_bwreq_avg = (sum(bwreq_df["bit_eff"])/sum(bwreq_df["cycle"]))
     inst_bwreq_avg = round(inst_bwreq_avg, 3)
-    
+
     return inst_bwreq_max, inst_bwreq_avg
 
 
@@ -229,7 +230,7 @@ def get_edu_latency_res(edu_est_stat, edu_sim_stat):
     edu_latency_list = [round(cyc/edu_est_stat.freq, 2) for cyc in edu_cycle_list] # ns
     edu_latency_max = max(edu_latency_list)
     edu_latency_avg = round(sum(edu_latency_list)/len(edu_latency_list), 2)
-    
+
     return edu_latency_max, edu_latency_avg
 
 
@@ -248,7 +249,7 @@ def get_transfer_unit(est_stat, sim_stat):
     cols = ["src", "dst", "max_gbps", "avg_gbps"]
     transfer_unit_df = pd.DataFrame(columns=cols)
 
-    src = est_stat.name 
+    src = est_stat.name
     for dst, stat in sim_stat.data_transfer.items():
         eff_bit_list = [num_eff * stat["bw"] for num_eff in stat["num_eff"]]
         if len(eff_bit_list) == 0:
@@ -266,8 +267,8 @@ def get_transfer_unit(est_stat, sim_stat):
         row = [[src, dst, max_gbps, avg_gbps]]
         row_df = pd.DataFrame(row, columns=cols, index=[0])
         transfer_unit_df = pd.concat([transfer_unit_df, row_df], ignore_index=True)
-   
-    return transfer_unit_df 
+
+    return transfer_unit_df
 
 def get_gbps_300K_4K_res(transfer_df, estimator_stat):
     gbps_300K_4K_max = 0
@@ -276,13 +277,13 @@ def get_gbps_300K_4K_res(transfer_df, estimator_stat):
         for est_stat in estimator_stat:
             if row["src"] == est_stat.name:
                 src_temp = est_stat.temp
-            if row["dst"] == est_stat.name: 
+            if row["dst"] == est_stat.name:
                 dst_temp = est_stat.temp
         #
         if (src_temp == "300K" and dst_temp == "4K") or ( src_temp == "4K" and dst_temp == "300K"):
             gbps_300K_4K_max += row["max_gbps"]
             gbps_300K_4K_avg += row["avg_gbps"]
-    
+
     return gbps_300K_4K_max, gbps_300K_4K_avg
 
 ##
@@ -315,17 +316,17 @@ def main(argv):
     if FLAGS.skip_pqsim == "True":
         skip_pqsim = True
     else:
-        skip_pqsim = False 
+        skip_pqsim = False
     if FLAGS.debug == "True":
         debug = True
     else:
-        debug = False 
+        debug = False
 
     #
     framework = xqsim()
     framework.setup(
-            config=FLAGS.config, 
-            qbin=FLAGS.qbin, 
+            config=FLAGS.config,
+            qbin=FLAGS.qbin,
             num_shots=FLAGS.num_shots,
             dump_synth=dump_synth,
             regen_synth=regen_synth,
@@ -336,16 +337,16 @@ def main(argv):
             skip_pqsim=skip_pqsim,
             debug=debug
             )
-    
+
     xqsim_res, pqsim_res = framework.run()
-    
+
     summarize_simres(xqsim_res)
 
     return
 
 
 if __name__ == "__main__":
-    FLAGS = flags.FLAGS 
+    FLAGS = flags.FLAGS
     flags.DEFINE_string("config", "example_cmos_d5", "target config name", short_name='c')
     flags.DEFINE_string("qbin", "pprIIZZZ_n5", "target quantum binary", short_name='b')
     flags.DEFINE_integer("num_shots", 512, "num shots for ftn. correct mode", short_name='s')
