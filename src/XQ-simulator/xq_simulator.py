@@ -24,25 +24,26 @@ from unit_stat import unit_stat_sim
 from util import *
 from visualization import *
 #
-from quantum_instruction_fetch import quantum_instruction_fetch as qif 
-from quantum_instruction_decoder import quantum_instruction_decoder as qid 
-from patch_decode_unit import patch_decode_unit as pdu 
-from patch_information_unit import patch_information_unit as piu 
-from physical_schedule_unit import physical_schedule_unit as psu 
-from time_control_unit import time_control_unit as tcu 
+from quantum_instruction_fetch import quantum_instruction_fetch as qif
+from quantum_instruction_decoder import quantum_instruction_decoder as qid
+from patch_decode_unit import patch_decode_unit as pdu
+from patch_information_unit import patch_information_unit as piu
+from physical_schedule_unit import physical_schedule_unit as psu
+from time_control_unit import time_control_unit as tcu
 from qtexec_unit import qtexec_unit as qxu
 from error_decode_unit import error_decode_unit as edu
 from pauliframe_unit import pauliframe_unit as pfu
-from logical_measurement_unit import logical_measurement_unit as lmu 
+from logical_measurement_unit import logical_measurement_unit as lmu
 
 
 class xq_simulator:
     def __init__(self):
+        self.emulate = False
         self.config = None
-        self.qbin = None 
+        self.qbin = None
         self.num_lq = None
         self.skip_pqsim = None
-        self.num_shots = None 
+        self.num_shots = None
         self.dump = None
         self.regen = None
         self.debug = None
@@ -51,13 +52,13 @@ class xq_simulator:
         self.sim_done = False
 
 
-    def setup(self, 
-              config=None, 
-              qbin=None, 
+    def setup(self,
+              config=None,
+              qbin=None,
               num_lq=None,
-              skip_pqsim=None, 
+              skip_pqsim=None,
               num_shots=None,
-              dump=None, 
+              dump=None,
               regen=None,
               debug=None):
         os.chdir(curr_dir)
@@ -70,7 +71,7 @@ class xq_simulator:
             self.num_lq = num_lq
         if skip_pqsim is not None:
             self.skip_pqsim = skip_pqsim
-        if num_shots is not None: 
+        if num_shots is not None:
             self.num_shots = num_shots
         if dump is not None:
             self.dump = dump
@@ -88,14 +89,14 @@ class xq_simulator:
             self.qbin_filepath = "{}/quantum_circuits/binary/{}.qbin".format(par_dir, self.qbin)
             self.param = sim_param(config_filepath, isadef_filepath, self.num_lq)
             self.param.refine_psu_param(target="simulator")
-        
+
         if self.param is not None:
             self.unit_stat_list = []
             for unit_name, unit_cfg in self.param.arch_unit.items():
                 uarch = unit_cfg["uarch"]
                 temp, tech, vopt = tuple(unit_cfg["temp_tech"].split("_"))
                 unit_stat = unit_stat_sim(
-                        name = unit_name, 
+                        name = unit_name,
                         uarch = uarch
                         )
                 self.unit_stat_list.append(unit_stat)
@@ -115,7 +116,7 @@ class xq_simulator:
                 elif unit_stat.name == "QXU":
                     self.qxu = qxu(unit_stat, self.param, self.skip_pqsim, self.num_shots)
                 elif unit_stat.name == "EDU":
-                    self.edu = edu(unit_stat, self.param, "layer") 
+                    self.edu = edu(unit_stat, self.param, "layer")
                 elif unit_stat.name == "PFU":
                     self.pfu = pfu(unit_stat, self.param)
                 elif unit_stat.name == "LMU":
@@ -140,7 +141,7 @@ class xq_simulator:
         if (not self.regen) and \
             os.path.exists(self.dump_path+".stat") and \
             (self.skip_pqsim or os.path.exists(self.dump_path+".pqsim")):
-            
+
             f = open(self.dump_path+".stat", 'rb')
             simulator_stat = pickle.load(f)
             f.close()
@@ -150,7 +151,7 @@ class xq_simulator:
                 f.close()
             else:
                 pqsim_res = None
-        
+
             return simulator_stat, pqsim_res
 
         if not ray.is_initialized():
@@ -158,7 +159,7 @@ class xq_simulator:
         start = timeit.default_timer()
         print("Simulation starts", flush=True)
         #
-        while not self.sim_done: 
+        while not self.sim_done:
             self.run_cycle_transfer()
             self.run_cycle_update()
             self.run_cycle_tick()
@@ -166,7 +167,7 @@ class xq_simulator:
         print("Last cycle: {}".format(self.cycle))
         sim_time = round(timeit.default_timer()-start, 3)
         print("Simulation ends: {} sec".format(sim_time))
-       
+
         if not self.emulate:
             self.lq_state_dist_list_x = self.qxu.lq_state_dist_list_x
             self.lq_state_dist_list_y = self.qxu.lq_state_dist_list_y
@@ -177,14 +178,14 @@ class xq_simulator:
             self.lqsign_acc_z = self.lmu.lqsign_acc_z
             self.byproduct_list = self.lmu.byproduct_list
             self.output_pfarray_list = self.pfu.output_pfarray_list
-            
+
             # To print resultant value
             pqsim_res = self.get_logical_state()
-        else: 
+        else:
             pqsim_res = None
 
         simulator_stat = self.unit_stat_list
-        if self.dump: 
+        if self.dump:
             f = open(self.dump_path+".stat", 'wb')
             pickle.dump(simulator_stat, f)
             f.close()
@@ -194,9 +195,9 @@ class xq_simulator:
                 f.close()
         else:
             pass
-        
+
         return simulator_stat, pqsim_res
-    
+
     def run_cycle_transfer (self):
         ###### Transfer ######
         # QIF
@@ -209,7 +210,7 @@ class xq_simulator:
         self.qid.transfer()
         # PDU
         ### QID -> PDU
-        self.pdu.input_from_qid = self.qid.output_to_pchdec 
+        self.pdu.input_from_qid = self.qid.output_to_pchdec
         self.pdu.input_pchdecbuf_empty = self.qid.output_pchdecbuf_empty
         self.pdu.transfer()
         # PIU
@@ -218,7 +219,7 @@ class xq_simulator:
         self.piu.input_opcode = self.pdu.output_opcode
         self.piu.input_pch_list = self.pdu.output_pch_list
         self.piu.input_pchpp_list = self.pdu.output_pchpp_list
-        self.piu.input_pchop_list = self.pdu.output_pchop_list 
+        self.piu.input_pchop_list = self.pdu.output_pchop_list
         self.piu.input_pchmreg_list = self.pdu.output_pchmreg_list
         self.piu.transfer()
         # PSU
@@ -242,18 +243,18 @@ class xq_simulator:
         self.qxu.input_current_cycle = self.cycle
         # EDU
         ### QXU -> EDU
-        self.edu.input_aqmeas_valid = self.qxu.output_aqmeas_valid 
-        self.edu.input_aqmeas_array     = self.qxu.output_aq_meas_mem 
-        self.edu.input_dqmeas_valid = self.qxu.output_dqmeas_valid 
-        self.edu.input_dqmeas_array = self.qxu.output_dq_meas_mem 
+        self.edu.input_aqmeas_valid = self.qxu.output_aqmeas_valid
+        self.edu.input_aqmeas_array     = self.qxu.output_aq_meas_mem
+        self.edu.input_dqmeas_valid = self.qxu.output_dqmeas_valid
+        self.edu.input_dqmeas_array = self.qxu.output_dq_meas_mem
         ### PIU -> EDU
         self.edu.input_pchinfo_valid   = self.piu.output_topsu_valid
         self.edu.input_pchinfo         = self.piu.output_pchinfo
         self.edu.input_last_pchinfo    = self.piu.output_last_pchinfo
-        self.edu.input_piu_opcode  = self.piu.output_opcode 
+        self.edu.input_piu_opcode  = self.piu.output_opcode
         ### TCU -> EDU
-        self.edu.input_tcu_opcode = self.tcu.output_opcode 
-        self.edu.input_tcu_valid = self.tcu.output_valid 
+        self.edu.input_tcu_opcode = self.tcu.output_opcode
+        self.edu.input_tcu_valid = self.tcu.output_valid
         self.edu.transfer()
         # PFU
         ### PIU -> PFU
@@ -262,8 +263,8 @@ class xq_simulator:
         self.pfu.input_last_pchinfo = self.piu.output_last_pchinfo
         self.pfu.input_piu_opcode = self.piu.output_opcode
         ### TCU -> PFU
-        self.pfu.input_tcu_valid = self.tcu.output_valid 
-        self.pfu.input_tcu_opcode = self.tcu.output_opcode 
+        self.pfu.input_tcu_valid = self.tcu.output_valid
+        self.pfu.input_tcu_opcode = self.tcu.output_opcode
         ### EDU -> PFU
         self.pfu.input_error_array = self.edu.output_error_array
         self.pfu.input_error_valid = self.edu.output_valid
@@ -281,7 +282,7 @@ class xq_simulator:
         self.lmu.input_opcode = self.tcu.output_opcode
         self.lmu.input_opcode_valid = self.tcu.output_valid
         ### EDU -> LMU
-        self.lmu.input_aqmeas_array = self.edu.output_eigen_array 
+        self.lmu.input_aqmeas_array = self.edu.output_eigen_array
         self.lmu.input_aqmeas_valid = self.edu.output_valid
         ### QXU -> LMU
         self.lmu.input_dqmeas_array = self.qxu.output_dq_meas_mem
@@ -297,7 +298,7 @@ class xq_simulator:
         self.lmu.transfer()
 
         # Stall & Ready signal
-        physched_pchwr_stall = (self.piu.output_topsu_valid and (self.psu.pchinfo_full or self.pfu.pchinfo_full)) 
+        physched_pchwr_stall = (self.piu.output_topsu_valid and (self.psu.pchinfo_full or self.pfu.pchinfo_full))
         lqmeas_pchwr_stall = (self.piu.output_tolmu_valid and self.lmu.pchinfo_full)
         ### LMU
         if self.piu.output_topsu_valid and self.piu.output_tolmu_valid:
@@ -377,18 +378,18 @@ class xq_simulator:
         done_cond = done_cond and self.qid.done
         done_cond = done_cond and (self.pdu.state == "empty")
         done_cond = done_cond and (self.piu.state == "ready")
-        done_cond = done_cond and (self.psu.state == "ready" and not self.psu.pchinfo_srmem.output_notempty) 
+        done_cond = done_cond and (self.psu.state == "ready" and not self.psu.pchinfo_srmem.output_notempty)
         done_cond = done_cond and self.tcu.output_timebuf_empty
         done_cond = done_cond and not (bool(self.qxu.dq_meas_mem) or bool(self.qxu.aq_meas_mem))
         done_cond = done_cond and (self.pfu.state == "ready")
         done_cond = done_cond and self.lmu.done
 
-        if done_cond: 
+        if done_cond:
             self.sim_done = True
-        else: 
+        else:
             pass
         self.cycle += 1
-        if self.cycle % 100 == 0: 
+        if self.cycle % 100 == 0:
             print("qif.done:",self.qif.done)
             print("qid.done:",self.qid.done)
             print("pdu.done:",self.pdu.state == "empty")
@@ -398,11 +399,11 @@ class xq_simulator:
             print("qxu.done:",not (bool(self.qxu.dq_meas_mem) or bool(self.qxu.aq_meas_mem)))
             print("pfu.done:",self.pfu.state == "ready")
             print("lmu.done:",self.lmu.done)
-            ###### 
+            ######
             if not self.debug:
                 print("Cycle: ", self.cycle)
             print("sim_done: {}".format(self.sim_done), flush=True)
-        if self.debug: 
+        if self.debug:
             print("Cycle: ", self.cycle)
         return
 
@@ -413,35 +414,35 @@ class xq_simulator:
         lq_state_dist_list_x = self.lq_state_dist_list_x
         lq_state_dist_list_y = self.lq_state_dist_list_y
         lq_state_dist_list_z = self.lq_state_dist_list_z
-        
+
         # lq to pchidx mapping
         lq_pchidx = self.lq_pchidx
         lq_pchtype = self.lq_pchtype
-        
+
         # lmu.lqsign_acc_reg extracted per ppr
         lop_sign_x = self.lqsign_acc_x
         lop_sign_z = self.lqsign_acc_z
-        
+
         # lmu.byproduct extracted per ppr
         byproduct = self.byproduct_list
-        
+
         # psu.output_pfarray
         output_pfarray = self.output_pfarray_list
-        
+
         ## Apply accumulated sign to raw state
         sign_corrected_state_x = []
         sign_corrected_state_y = []
         sign_corrected_state_z = []
         for cx, cy, cz, sx, sz in zip(lq_state_dist_list_x, lq_state_dist_list_y, lq_state_dist_list_z, lop_sign_x, lop_sign_z):
             sy = ['+' if x == z else '-' for (x,z) in zip(sx,sz)]
-            
+
             _cx = apply_lop_sign(cx, sx)
             _cy = apply_lop_sign(cy, sy)
             _cz = apply_lop_sign(cz, sz)
             sign_corrected_state_x.append(_cx)
             sign_corrected_state_y.append(_cy)
             sign_corrected_state_z.append(_cz)
-            
+
         # Apply byproduct to sign-corrected state
         bp_corrected_state_x = []
         bp_corrected_state_y = []
@@ -477,11 +478,11 @@ class xq_simulator:
                 for pf in [pfarray[idx] for idx in qb_lop_x]:
                     pf_product_x ^= int(pf == 'z' or pf == 'y')
                 pf_product_y = pf_product_x ^ pf_product_z
-                
+
                 pf_product_list_x.append(pf_product_x)
                 pf_product_list_y.append(pf_product_y)
                 pf_product_list_z.append(pf_product_z)
-            
+
             sx = ['-' if (p==1) else '+' for p in pf_product_list_x]
             sy = ['-' if (p==1) else '+' for p in pf_product_list_y]
             sz = ['-' if (p==1) else '+' for p in pf_product_list_z]
@@ -491,7 +492,7 @@ class xq_simulator:
             final_state_x.append(_cx)
             final_state_y.append(_cy)
             final_state_z.append(_cz)
-        
+
         cx = final_state_x[-1]
         cy = final_state_y[-1]
         cz = final_state_z[-1]
@@ -522,7 +523,7 @@ def main(argv):
         debug = True
     else:
         debug = False
-    b_format = compile("{}_n{}") 
+    b_format = compile("{}_n{}")
     _, str_lq = b_format.parse(qbin)
     num_lq = int(str_lq)+2 # total number of lq
 
@@ -544,13 +545,13 @@ def main(argv):
 
     print("****** XQ-simulator Result - Loigcal-qubit quantum state distribution ******")
     for basis, s_dict in pqsim_res.items():
-        if basis == "cx": 
+        if basis == "cx":
             basis = "X"
         elif basis == "cy":
             basis = "Y"
         elif basis == "cz":
             basis = "Z"
-            
+
         print("****** Measurement basis: {} ******".format(basis))
         for state, prob in s_dict.items():
             if prob <= 0:
